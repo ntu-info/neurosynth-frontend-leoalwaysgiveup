@@ -133,7 +133,8 @@ neurosynth-frontend/
 ├── index.html              # 主要網頁檔案
 ├── README.md              # 專案說明文件
 ├── LICENSE                # 授權文件
-└── info_07_tutorial/      # 教學檔案（老師提供）
+└── info_07_tutorial/    # 教學檔案（老師提供）
+└── neurosynth-frontend-leoalwaysgiveup_.md #聊天檔
 ```
 
 
