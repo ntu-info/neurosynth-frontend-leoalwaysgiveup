@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neurosynth Frontend - 神經科學術語查詢系統</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .fade-in {
+      animation: fadeIn 0.3s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .term-badge:hover {
+      transform: scale(1.05);
+      transition: transform 0.2s ease;
+    }
+    .loading {
+      border-top-color: #3b82f6;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+  <div class="container mx-auto px-4 py-8 max-w-7xl">
+    <!-- Header -->
+    <header class="text-center mb-12">
+      <h1 class="text-5xl font-bold text-indigo-900 mb-4">
+        🧠 Neurosynth Frontend
+      </h1>
+      <p class="text-lg text-gray-700">神經科學術語查詢與研究搜尋系統</p>
+      <p class="text-sm text-gray-500 mt-2">Backend: mil.psy.ntu.edu.tw:5000</p>
+    </header>
+
+    <!-- Tab Navigation -->
+    <div class="flex justify-center mb-8">
+      <div class="bg-white rounded-lg shadow-lg p-2 inline-flex space-x-2">
+        <button onclick="switchTab('all-terms')" id="tab-all-terms" 
+                class="px-6 py-3 rounded-md font-semibold transition-all duration-200 bg-indigo-600 text-white">
+          所有術語
+        </button>
+        <button onclick="switchTab('term-lookup')" id="tab-term-lookup"
+                class="px-6 py-3 rounded-md font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-100">
+          術語查詢
+        </button>
+        <button onclick="switchTab('study-search')" id="tab-study-search"
+                class="px-6 py-3 rounded-md font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-100">
+          研究搜尋
+        </button>
+      </div>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="space-y-6">
+      <!-- Tab 1: All Terms -->
+      <div id="content-all-terms" class="tab-content">
+        <div class="bg-white rounded-xl shadow-xl p-8">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-3xl font-bold text-gray-800">所有可用術語</h2>
+            <button onclick="fetchAllTerms()" 
+                    class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+              🔄 重新載入
+            </button>
+          </div>
+          <div id="all-terms-output" class="text-gray-600">
+            載入中...
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Term Lookup -->
+      <div id="content-term-lookup" class="tab-content hidden">
+        <div class="bg-white rounded-xl shadow-xl p-8">
+          <h2 class="text-3xl font-bold text-gray-800 mb-6">術語關聯查詢</h2>
+          <div class="mb-6">
+            <label for="term-input" class="block text-lg font-semibold text-gray-700 mb-3">
+              輸入術語（即時 AJAX 查詢）：
+            </label>
+            <input type="text" id="term-input" 
+                   placeholder="例如：amygdala, emotion, memory..."
+                   class="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none transition-colors">
+            <p class="text-sm text-gray-500 mt-2">💡 提示：輸入時會自動查詢，無需按 Enter</p>
+          </div>
+          <div id="term-lookup-output" class="text-gray-600">
+            請輸入術語以開始查詢...
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Study Search -->
+      <div id="content-study-search" class="tab-content hidden">
+        <div class="bg-white rounded-xl shadow-xl p-8">
+          <h2 class="text-3xl font-bold text-gray-800 mb-6">研究邏輯搜尋</h2>
+          <div class="mb-6">
+            <label for="query-input" class="block text-lg font-semibold text-gray-700 mb-3">
+              輸入查詢語句（即時 AJAX 查詢）：
+            </label>
+            <input type="text" id="query-input" 
+                   placeholder="例如：amygdala not emotion, memory and attention..."
+                   class="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none transition-colors">
+            <div class="mt-3 bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+              <p class="text-sm text-gray-700 font-semibold mb-2">💡 支援的邏輯運算符：</p>
+              <ul class="text-sm text-gray-600 space-y-1 ml-4">
+                <li>• <code class="bg-gray-200 px-2 py-1 rounded">and</code> - 同時包含兩個術語</li>
+                <li>• <code class="bg-gray-200 px-2 py-1 rounded">or</code> - 包含任一術語</li>
+                <li>• <code class="bg-gray-200 px-2 py-1 rounded">not</code> - 排除特定術語</li>
+              </ul>
+            </div>
+          </div>
+          <div id="study-search-output" class="text-gray-600">
+            請輸入查詢語句以開始搜尋...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-12 text-center text-gray-600 text-sm">
+      <p>© 2025 Neurosynth Frontend | 心理學系程式設計作業</p>
+    </footer>
+  </div>
+
+  <script>
+    // Support multiple backend servers with fallback
+    const API_SERVERS = [
+      'https://mil.psy.ntu.edu.tw:5000',
+      'https://hpc.psy.ntu.edu.tw:5000'
+    ];
+    let currentServerIndex = 0;
+    let API_BASE = API_SERVERS[0];
+    let termLookupTimeout = null;
+    let studySearchTimeout = null;
+    
+    // Helper function to try fetching from available servers
+    async function fetchWithFallback(endpoint) {
+      for (let i = 0; i < API_SERVERS.length; i++) {
+        const serverIndex = (currentServerIndex + i) % API_SERVERS.length;
+        const server = API_SERVERS[serverIndex];
+        
+        try {
+          const resp = await fetch(`${server}${endpoint}`);
+          if (resp.ok) {
+            // Update current server and API_BASE if we switched
+            if (serverIndex !== currentServerIndex) {
+              currentServerIndex = serverIndex;
+              API_BASE = API_SERVERS[currentServerIndex];
+              console.log(`Switched to backup server: ${API_BASE}`);
+              // Update display
+              const backendDisplay = document.querySelector('header p:last-child');
+              if (backendDisplay) {
+                backendDisplay.textContent = `Backend: ${API_BASE.replace('https://', '')}`;
+              }
+            }
+            return resp;
+          }
+        } catch (err) {
+          console.log(`Server ${server} failed: ${err.message}`);
+          // Continue to next server
+        }
+      }
+      // All servers failed
+      throw new Error('所有後端伺服器均無法連接');
+    }
+
+    // Tab switching
+    function switchTab(tabName) {
+      // Hide all tabs
+      document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.add('hidden');
+      });
+      
+      // Remove active state from all buttons
+      document.querySelectorAll('[id^="tab-"]').forEach(btn => {
+        btn.classList.remove('bg-indigo-600', 'text-white');
+        btn.classList.add('text-gray-600', 'hover:bg-gray-100');
+      });
+      
+      // Show selected tab
+      document.getElementById(`content-${tabName}`).classList.remove('hidden');
+      
+      // Add active state to selected button
+      const activeBtn = document.getElementById(`tab-${tabName}`);
+      activeBtn.classList.add('bg-indigo-600', 'text-white');
+      activeBtn.classList.remove('text-gray-600', 'hover:bg-gray-100');
+    }
+
+    // Fetch all terms
+    async function fetchAllTerms() {
+      const output = document.getElementById('all-terms-output');
+      output.innerHTML = '<div class="flex items-center justify-center py-12"><div class="w-12 h-12 border-4 border-gray-200 border-t-indigo-600 rounded-full loading"></div></div>';
+      
+      try {
+        const resp = await fetchWithFallback('/terms');
+        
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+        }
+        
+        const data = await resp.json();
+        
+        // Handle different response formats: direct array or object with terms property
+        let termsArray = Array.isArray(data) ? data : (data.terms || []);
+        
+        if (Array.isArray(termsArray) && termsArray.length > 0) {
+          let html = `<div class="mb-4"><span class="text-lg font-semibold text-indigo-600">共找到 ${termsArray.length} 個術語</span></div>`;
+          html += '<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-96 overflow-y-auto">';
+          
+          termsArray.forEach(term => {
+            html += `<div class="term-badge bg-indigo-50 hover:bg-indigo-100 px-4 py-3 rounded-lg text-center cursor-pointer transition-all border border-indigo-200" onclick="lookupTerm('${term}')">
+                      <span class="text-gray-800 font-medium">${term}</span>
+                    </div>`;
+          });
+          
+          html += '</div>';
+          output.innerHTML = html;
+        } else {
+          output.innerHTML = '<p class="text-gray-500 text-center py-8">未找到任何術語</p>';
+        }
+      } catch (err) {
+        console.error('fetchAllTerms error:', err);
+        output.innerHTML = `<div class="bg-red-50 border-l-4 border-red-500 p-6 rounded">
+                              <p class="text-red-800 font-semibold mb-2">❌ 錯誤</p>
+                              <p class="text-red-700">${err.message}</p>
+                              <p class="text-sm text-red-600 mt-3">可能原因：網路問題、伺服器錯誤或 CORS 限制</p>
+                              <button onclick="fetchAllTerms()" class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                                重試
+                              </button>
+                            </div>`;
+      }
+    }
+
+    // Term lookup (AJAX)
+    async function fetchTermLookup(term) {
+      const output = document.getElementById('term-lookup-output');
+      
+      if (!term.trim()) {
+        output.innerHTML = '<p class="text-gray-500 text-center py-8">請輸入術語以開始查詢...</p>';
+        return;
+      }
+      
+      output.innerHTML = '<div class="flex items-center justify-center py-12"><div class="w-12 h-12 border-4 border-gray-200 border-t-indigo-600 rounded-full loading"></div></div>';
+      
+      try {
+        const resp = await fetchWithFallback(`/terms/${encodeURIComponent(term)}`);
+        
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+        }
+        
+        const data = await resp.json();
+        
+        if (data && typeof data === 'object') {
+          let html = `<div class="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                        <h3 class="text-2xl font-bold text-indigo-900 mb-2">查詢術語: ${term}</h3>
+                      </div>`;
+          
+          // Display all key-value pairs
+          html += '<div class="space-y-4">';
+          for (const [key, value] of Object.entries(data)) {
+            html += `<div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <div class="font-semibold text-gray-700 mb-2">${key}:</div>`;
+            
+            if (Array.isArray(value)) {
+              if (value.length > 0) {
+                html += '<div class="grid grid-cols-2 md:grid-cols-3 gap-2">';
+                value.forEach(item => {
+                  // Handle objects in array
+                  if (typeof item === 'object' && item !== null) {
+                    const displayText = item.term || item.name || JSON.stringify(item);
+                    html += `<div class="bg-white px-3 py-2 rounded border border-gray-300 text-sm">${displayText}</div>`;
+                  } else {
+                    html += `<div class="bg-white px-3 py-2 rounded border border-gray-300 text-sm">${item}</div>`;
+                  }
+                });
+                html += '</div>';
+              } else {
+                html += '<p class="text-gray-500 italic">無資料</p>';
+              }
+            } else if (typeof value === 'object' && value !== null) {
+              html += `<pre class="bg-white p-3 rounded border border-gray-300 text-sm overflow-x-auto">${JSON.stringify(value, null, 2)}</pre>`;
+            } else {
+              html += `<p class="text-gray-800">${value}</p>`;
+            }
+            
+            html += '</div>';
+          }
+          html += '</div>';
+          
+          output.innerHTML = html;
+        } else {
+          output.innerHTML = '<p class="text-gray-500 text-center py-8">未找到相關資料</p>';
+        }
+      } catch (err) {
+        output.innerHTML = `<div class="bg-red-50 border-l-4 border-red-500 p-6 rounded">
+                              <p class="text-red-800 font-semibold mb-2">❌ 錯誤</p>
+                              <p class="text-red-700">${err.message}</p>
+                            </div>`;
+      }
+    }
+
+    // Study search (AJAX)
+    async function fetchStudySearch(query) {
+      const output = document.getElementById('study-search-output');
+      
+      if (!query.trim()) {
+        output.innerHTML = '<p class="text-gray-500 text-center py-8">請輸入查詢語句以開始搜尋...</p>';
+        return;
+      }
+      
+      output.innerHTML = '<div class="flex items-center justify-center py-12"><div class="w-12 h-12 border-4 border-gray-200 border-t-indigo-600 rounded-full loading"></div></div>';
+      
+      try {
+        const resp = await fetchWithFallback(`/query/${encodeURIComponent(query)}/studies`);
+        
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+        }
+        
+        const data = await resp.json();
+        
+        if (data && typeof data === 'object') {
+          let html = `<div class="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                        <h3 class="text-2xl font-bold text-indigo-900 mb-2">查詢: ${query}</h3>
+                      </div>`;
+          
+          // Handle different response structures
+          let studiesArray = null;
+          let totalCount = 0;
+          
+          if (data.results && Array.isArray(data.results)) {
+            studiesArray = data.results;
+            totalCount = data.count || data.results.length;
+          } else if (data.studies && Array.isArray(data.studies)) {
+            studiesArray = data.studies;
+            totalCount = data.studies.length;
+          } else if (Array.isArray(data)) {
+            studiesArray = data;
+            totalCount = data.length;
+          }
+          
+          if (studiesArray) {
+            html += `<div class="mb-4"><span class="text-lg font-semibold text-indigo-600">找到 ${totalCount} 項研究</span></div>`;
+            
+            if (studiesArray.length > 0) {
+              html += '<div class="space-y-3 max-h-96 overflow-y-auto">';
+              studiesArray.forEach((study, idx) => {
+                let studyDisplay = '';
+                
+                if (typeof study === 'object' && study !== null) {
+                  // Handle study objects
+                  const title = study.title || study.study_id || study.id || 'Unknown Study';
+                  const authors = study.authors || '';
+                  const journal = study.journal || '';
+                  const year = study.year || '';
+                  
+                  studyDisplay = `
+                    <div class="font-semibold text-gray-800 mb-1">${idx + 1}. ${title}</div>
+                    ${authors ? `<div class="text-sm text-gray-600">作者: ${authors}</div>` : ''}
+                    ${journal ? `<div class="text-sm text-gray-600">期刊: ${journal}</div>` : ''}
+                    ${year ? `<div class="text-sm text-gray-600">年份: ${year}</div>` : ''}
+                  `;
+                } else {
+                  // Handle string studies
+                  studyDisplay = `<div class="font-semibold text-gray-800">${idx + 1}. ${study}</div>`;
+                }
+                
+                html += `<div class="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                          ${studyDisplay}
+                        </div>`;
+              });
+              html += '</div>';
+            } else {
+              html += '<p class="text-gray-500 text-center py-8">未找到符合條件的研究</p>';
+            }
+          } else {
+            // Display formatted JSON if structure is unknown
+            html += `<div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded mb-4">
+                      <p class="text-yellow-800 font-semibold">⚠️ 資料格式說明</p>
+                      <p class="text-yellow-700 text-sm mt-1">API 返回的資料結構與預期不同，以下為原始資料：</p>
+                    </div>`;
+            html += `<pre class="bg-gray-50 p-4 rounded-lg border border-gray-200 overflow-x-auto text-sm">${JSON.stringify(data, null, 2)}</pre>`;
+          }
+          
+          output.innerHTML = html;
+        } else {
+          output.innerHTML = '<p class="text-gray-500 text-center py-8">未找到相關研究</p>';
+        }
+      } catch (err) {
+        output.innerHTML = `<div class="bg-red-50 border-l-4 border-red-500 p-6 rounded">
+                              <p class="text-red-800 font-semibold mb-2">❌ 錯誤</p>
+                              <p class="text-red-700">${err.message}</p>
+                            </div>`;
+      }
+    }
+
+    // Helper function to switch to term lookup tab and search
+    function lookupTerm(term) {
+      switchTab('term-lookup');
+      document.getElementById('term-input').value = term;
+      fetchTermLookup(term);
+    }
+
+    // Event listeners for AJAX inputs
+    document.getElementById('term-input').addEventListener('input', (e) => {
+      clearTimeout(termLookupTimeout);
+      termLookupTimeout = setTimeout(() => {
+        fetchTermLookup(e.target.value);
+      }, 500); // 500ms debounce
+    });
+
+    document.getElementById('query-input').addEventListener('input', (e) => {
+      clearTimeout(studySearchTimeout);
+      studySearchTimeout = setTimeout(() => {
+        fetchStudySearch(e.target.value);
+      }, 500); // 500ms debounce
+    });
+
+    // Initialize: load all terms on page load
+    fetchAllTerms();
+  </script>
+</body>
+</html>
+
